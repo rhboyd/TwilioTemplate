@@ -72,7 +72,7 @@ Resources:
           IntegrationHttpMethod: POST
           Credentials:
             Fn::GetAtt:
-              - CHANGEMEAdminAccessRoleCHANGEME
+              - SNSPublishPermission
               - Arn
           Uri: !Sub "arn:aws:apigateway:${AWS::Region}:sns:action/Publish"
           RequestParameters:
@@ -83,7 +83,7 @@ Resources:
             integration.request.querystring.Version: "'2010-03-31'"
             integration.request.header.Content-Type: "'application/json'"
           RequestTemplates:
-            application/x-www-form-urlencoded: !Sub |
+            application/x-www-form-urlencoded: |
               #set($message = "{")
                       #foreach( $token in $input.path('$').split('&') )
                           #set( $keyVal = $token.split('=') )
@@ -119,7 +119,7 @@ Resources:
           Ref: RestAPI
         StageName: Prod
 
-    CHANGEMEAdminAccessRoleCHANGEME:
+    SNSPublishPermission:
       Type: "AWS::IAM::Role"
       Properties:
         AssumeRolePolicyDocument:
@@ -132,8 +132,23 @@ Resources:
               Action:
                 - "sts:AssumeRole"
         Path: "/"
-        ManagedPolicyArns:
-          - arn:aws:iam::aws:policy/AdministratorAccess
+        Policies:
+         - PolicyName: "publishToSNS"
+           PolicyDocument:
+             Version: "2012-10-17"
+             Statement:
+              - Effect: "Allow"
+                Action: "sns:Publish"
+                Resource: !Ref DeveloperNotification
+         - PolicyName: "publishToCloudWatch"
+           PolicyDocument:
+             Version: "2012-10-17"
+             Statement:
+              - Effect: "Allow"
+                Action:
+                 - "cloudwatch:*"
+                 - "logs:*"
+                Resource: "*"
 
     DeveloperNotification:
       Type: AWS::SNS::Topic
