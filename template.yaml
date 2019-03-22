@@ -1,0 +1,140 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+    Twilio API
+
+Resources:
+    RestAPI:
+      Type: AWS::ApiGateway::RestApi
+      Properties:
+        Name: "Petition API"
+    Message:
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId: !GetAtt RestAPI.RootResourceId
+        PathPart: "message"
+        RestApiId: !Ref RestAPI
+    OptionsMethod:
+      Type: AWS::ApiGateway::Method
+      Properties:
+        AuthorizationType: NONE
+        RestApiId:
+          Ref: RestAPI
+        ResourceId:
+          Ref: Message
+        HttpMethod: OPTIONS
+        Integration:
+          IntegrationResponses:
+            - StatusCode: 200
+              ResponseParameters:
+                method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+                method.response.header.Access-Control-Allow-Origin: "'*'"
+                method.response.header.Content-Type: "'application/json'"
+              ResponseTemplates:
+                application/json: ''
+          PassthroughBehavior: WHEN_NO_MATCH
+          RequestTemplates:
+            application/json: '{"statusCode": 200}'
+          Type: MOCK
+        MethodResponses:
+          - StatusCode: 200
+            ResponseModels:
+              application/json: 'Empty'
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: false
+              method.response.header.Access-Control-Allow-Methods: false
+              method.response.header.Access-Control-Allow-Origin: false
+              method.response.header.Content-Type: false
+    PutMessageMethod:
+      Type: AWS::ApiGateway::Method
+      DependsOn:
+        - Message
+      Properties:
+        HttpMethod: POST
+        ResourceId: !Ref Message
+        RestApiId: !Ref RestAPI
+        AuthorizationType: NONE
+        RequestParameters:
+          method.request.querystring.TargetArn: true
+          method.request.querystring.Version: true
+          method.request.querystring.Message: false
+          method.request.querystring.Body: true
+          method.request.header.Content-Type: true
+        MethodResponses:
+          - ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: true
+              method.response.header.Access-Control-Allow-Headers: true
+              method.response.header.Content-Type: true
+            StatusCode: 200
+        Integration:
+          Type: AWS
+          IntegrationHttpMethod: POST
+          Credentials:
+            Fn::GetAtt:
+              - CHANGEMEAdminAccessRoleCHANGEME
+              - Arn
+          Uri: !Sub "arn:aws:apigateway:${AWS::Region}:sns:action/Publish"
+          RequestParameters:
+            integration.request.querystring.TargetArn: !Sub
+              - "'${targetArn}'"
+              - targetArn:
+                 !Ref DeveloperNotification
+            integration.request.querystring.Version: "'2010-03-31'"
+            integration.request.header.Content-Type: "'application/json'"
+          RequestTemplates:
+            application/x-www-form-urlencoded: !Sub |
+              #set($context.requestOverride.querystring.Message = $util.urlEncode($input.path('$')))
+              {}
+          IntegrationResponses:
+            - StatusCode: 200
+              ResponseParameters:
+                method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                method.response.header.Access-Control-Allow-Origin: "'*'"
+                method.response.header.Content-Type: "'application/xml'"
+            - StatusCode: 500
+
+    RestAPIdeployment:
+      Type: AWS::ApiGateway::Deployment
+      DependsOn:
+        - PutMessageMethod
+      Properties:
+        Description: "Prod Stage for "
+        RestApiId:
+          Ref: RestAPI
+        StageName: Prod
+
+    CHANGEMEAdminAccessRoleCHANGEME:
+      Type: "AWS::IAM::Role"
+      Properties:
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: "Allow"
+              Principal:
+                Service:
+                  - "apigateway.amazonaws.com"
+              Action:
+                - "sts:AssumeRole"
+        Path: "/"
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/AdministratorAccess
+
+    DeveloperNotification:
+      Type: AWS::SNS::Topic
+      Properties:
+        DisplayName: "Build Notifier"
+
+    SNSPolicy:
+      Type: AWS::SNS::TopicPolicy
+      Properties:
+        PolicyDocument:
+          Statement:
+            Sid: "MYSID001"
+            Effect: "Allow"
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sns:Publish
+            Resource: !Ref DeveloperNotification
+        Topics:
+          - !Ref DeveloperNotification
