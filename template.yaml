@@ -84,8 +84,23 @@ Resources:
             integration.request.header.Content-Type: "'application/json'"
           RequestTemplates:
             application/x-www-form-urlencoded: !Sub |
-              #set($context.requestOverride.querystring.Message = $util.urlEncode($input.path('$')))
-              {}
+              #set($message = "{")
+                      #foreach( $token in $input.path('$').split('&') )
+                          #set( $keyVal = $token.split('=') )
+                          #set( $keyValSize = $keyVal.size() )
+                          #if( $keyValSize >= 1 )
+                              #set( $key = $util.urlDecode($keyVal[0]) )
+                              #if( $keyValSize >= 2 )
+                                  #set( $val = $util.urlDecode($keyVal[1]) )
+                              #end
+                              #set( $message = "${message}""${key}"": ""${val}""")
+                              #if($foreach.hasNext)
+                               #set( $message = "${message}, ")
+                              #end
+                          #end
+                      #end
+              #set( $message = "${message} }")
+              #set($context.requestOverride.querystring.Message = $message)
           IntegrationResponses:
             - StatusCode: 200
               ResponseParameters:
