@@ -234,7 +234,7 @@ Resources:
     TwilioSMS:
       Type: AWS::SNS::Topic
       Properties:
-        DisplayName: "Build Notifier"
+        DisplayName: "Twilio SMS"
 
     SNSPolicy:
       Type: AWS::SNS::TopicPolicy
