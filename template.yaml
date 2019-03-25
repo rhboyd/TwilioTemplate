@@ -14,6 +14,44 @@ Resources:
         ParentId: !GetAtt RestAPI.RootResourceId
         PathPart: "message"
         RestApiId: !Ref RestAPI
+    Subscribe:
+      Type: AWS::ApiGateway::Resource
+      Properties:
+        ParentId: !GetAtt RestAPI.RootResourceId
+        PathPart: "subscribe"
+        RestApiId: !Ref RestAPI
+    SubscribeOptionsMethod:
+      Type: AWS::ApiGateway::Method
+      Properties:
+        AuthorizationType: NONE
+        RestApiId:
+          Ref: RestAPI
+        ResourceId:
+          Ref: Subscribe
+        HttpMethod: OPTIONS
+        Integration:
+          IntegrationResponses:
+            - StatusCode: 200
+              ResponseParameters:
+                method.response.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+                method.response.header.Access-Control-Allow-Methods: "'GET,POST,OPTIONS'"
+                method.response.header.Access-Control-Allow-Origin: "'*'"
+                method.response.header.Content-Type: "'application/json'"
+              ResponseTemplates:
+                application/json: ''
+          PassthroughBehavior: WHEN_NO_MATCH
+          RequestTemplates:
+            application/json: '{"statusCode": 200}'
+          Type: MOCK
+        MethodResponses:
+          - StatusCode: 200
+            ResponseModels:
+              application/json: 'Empty'
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: false
+              method.response.header.Access-Control-Allow-Methods: false
+              method.response.header.Access-Control-Allow-Origin: false
+              method.response.header.Content-Type: false
     OptionsMethod:
       Type: AWS::ApiGateway::Method
       Properties:
@@ -48,8 +86,6 @@ Resources:
               method.response.header.Content-Type: false
     PutMessageMethod:
       Type: AWS::ApiGateway::Method
-      DependsOn:
-        - Message
       Properties:
         HttpMethod: POST
         ResourceId: !Ref Message
@@ -108,6 +144,47 @@ Resources:
                 method.response.header.Access-Control-Allow-Origin: "'*'"
                 method.response.header.Content-Type: "'application/xml'"
             - StatusCode: 500
+    SubscribeMethod:
+      Type: AWS::ApiGateway::Method
+      Properties:
+        HttpMethod: POST
+        ResourceId: !Ref Subscribe
+        RestApiId: !Ref RestAPI
+        AuthorizationType: NONE
+        RequestParameters:
+          method.request.querystring.TargetArn: true
+          method.request.querystring.Version: true
+          method.request.header.Content-Type: true
+          method.request.querystring.smsNumber: true
+        MethodResponses:
+          - ResponseParameters:
+              method.response.header.Access-Control-Allow-Origin: true
+              method.response.header.Access-Control-Allow-Headers: true
+              method.response.header.Content-Type: true
+            StatusCode: 200
+        Integration:
+          Type: AWS
+          IntegrationHttpMethod: POST
+          Credentials:
+            Fn::GetAtt:
+              - SNSPublishPermission
+              - Arn
+          Uri: !Sub "arn:aws:apigateway:${AWS::Region}:sns:action/Subscribe"
+          RequestParameters:
+            integration.request.querystring.TopicArn: !Sub
+              - "'${targetArn}'"
+              - targetArn:
+                 !Ref DeveloperNotification
+            integration.request.querystring.Version: "'2010-03-31'"
+            integration.request.header.Content-Type: "'application/json'"
+            integration.request.querystring.Endpoint: "method.request.querystring.smsNumber"
+            integration.request.querystring.Protocol: "'sms'"
+          RequestTemplates:
+            application/json: |
+              {}
+          IntegrationResponses:
+            - StatusCode: 200
+            - StatusCode: 500
 
     RestAPIdeployment:
       Type: AWS::ApiGateway::Deployment
@@ -138,7 +215,9 @@ Resources:
              Version: "2012-10-17"
              Statement:
               - Effect: "Allow"
-                Action: "sns:Publish"
+                Action:
+                 - "sns:Publish"
+                 - "sns:Subscribe"
                 Resource: !Ref DeveloperNotification
 
     DeveloperNotification:
