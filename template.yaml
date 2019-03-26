@@ -148,6 +148,7 @@ Resources:
               To: ${to}
               
               ${body}")
+              #set($context.requestOverride.querystring.Message = $message)
           IntegrationResponses:
             - StatusCode: 200
               ResponseParameters:
