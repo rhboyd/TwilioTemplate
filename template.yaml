@@ -126,22 +126,21 @@ Resources:
               #foreach( $token in $input.path('$').split('&') )
                   #set( $keyVal = $token.split('=') )
                   #set( $keyValSize = $keyVal.size() )
-                  #set( $key = "" )
-                  #set( $val = "" )
                   #if( $keyValSize >= 1 )
-                      #set( $key = $util.urlDecode($keyVal[0]) )
-                  #end
-                  #if( $keyValSize >= 2 )
-                      #set( $val = $util.urlDecode($keyVal[1]) )
-                  #end
-                  #if( $key == "From" )
-                      #set( $from = "${val}" )
-                  #end
-                  #if( $key == "To" )
-                      #set( $to = "${val}" )
-                  #end
-                  #if( $key == "Body" )
-                      #set( $body = "${val}" )
+                    #set( $key = $util.urlDecode($keyVal[0]) )
+                    #set( $val = "" )
+                    #if( $keyValSize >= 2 )
+                        #set( $val = $util.urlDecode($keyVal[1]) )
+                    #end
+                    #if( $key == "From" )
+                        #set( $from = "${val}" )
+                    #end
+                    #if( $key == "To" )
+                        #set( $to = "${val}" )
+                    #end
+                    #if( $key == "Body" )
+                        #set( $body = "${val}" )
+                    #end
                   #end
               #end
               #set( $message = "From: ${from}
