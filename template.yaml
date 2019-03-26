@@ -161,7 +161,7 @@ Resources:
         HttpMethod: POST
         ResourceId: !Ref Subscribe
         RestApiId: !Ref RestAPI
-        AuthorizationType: NONE
+        AuthorizationType: AWS_IAM
         RequestParameters:
           method.request.querystring.TargetArn: true
           method.request.querystring.Version: true
