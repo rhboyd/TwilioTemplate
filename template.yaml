@@ -1,13 +1,13 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
-    Twilio API
+    Twilio SMS to SNS
 
 Resources:
     RestAPI:
       Type: AWS::ApiGateway::RestApi
       Properties:
-        Name: "Petition API"
+        Name: "Twilio SMS to SNS API"
     Message:
       Type: AWS::ApiGateway::Resource
       Properties:
@@ -115,27 +115,38 @@ Resources:
             integration.request.querystring.TargetArn: !Sub
               - "'${targetArn}'"
               - targetArn:
-                 !Ref DeveloperNotification
+                 !Ref TwilioSMS
             integration.request.querystring.Version: "'2010-03-31'"
             integration.request.header.Content-Type: "'application/json'"
           RequestTemplates:
             application/x-www-form-urlencoded: |
-              #set($message = "{")
-                      #foreach( $token in $input.path('$').split('&') )
-                          #set( $keyVal = $token.split('=') )
-                          #set( $keyValSize = $keyVal.size() )
-                          #if( $keyValSize >= 1 )
-                              #set( $key = $util.urlDecode($keyVal[0]) )
-                              #if( $keyValSize >= 2 )
-                                  #set( $val = $util.urlDecode($keyVal[1]) )
-                              #end
-                              #set( $message = "${message}""${key}"": ""${val}""")
-                              #if($foreach.hasNext)
-                               #set( $message = "${message}, ")
-                              #end
-                          #end
-                      #end
-              #set( $message = "${message} }")
+              #set( $from = "<N/A>" )
+              #set( $to = "<N/A>" )
+              #set( $body = "<N/A>" )
+              #foreach( $token in $input.path('$').split('&') )
+                  #set( $keyVal = $token.split('=') )
+                  #set( $keyValSize = $keyVal.size() )
+                  #if( $keyValSize >= 1 )
+                    #set( $key = $util.urlDecode($keyVal[0]) )
+                    #set( $val = "" )
+                    #if( $keyValSize >= 2 )
+                        #set( $val = $util.urlDecode($keyVal[1]) )
+                    #end
+                    #if( $key == "From" )
+                        #set( $from = "${val}" )
+                    #end
+                    #if( $key == "To" )
+                        #set( $to = "${val}" )
+                    #end
+                    #if( $key == "Body" )
+                        #set( $body = "${val}" )
+                    #end
+                  #end
+              #end
+              #set( $message = "From: ${from}
+              To: ${to}
+              
+              ${body}")
               #set($context.requestOverride.querystring.Message = $message)
           IntegrationResponses:
             - StatusCode: 200
@@ -174,7 +185,7 @@ Resources:
             integration.request.querystring.TopicArn: !Sub
               - "'${targetArn}'"
               - targetArn:
-                 !Ref DeveloperNotification
+                 !Ref TwilioSMS
             integration.request.querystring.Version: "'2010-03-31'"
             integration.request.header.Content-Type: "'application/json'"
             integration.request.querystring.Endpoint: "method.request.querystring.smsNumber"
@@ -218,12 +229,12 @@ Resources:
                 Action:
                  - "sns:Publish"
                  - "sns:Subscribe"
-                Resource: !Ref DeveloperNotification
+                Resource: !Ref TwilioSMS
 
-    DeveloperNotification:
+    TwilioSMS:
       Type: AWS::SNS::Topic
       Properties:
-        DisplayName: "Build Notifier"
+        DisplayName: "Twilio SMS"
 
     SNSPolicy:
       Type: AWS::SNS::TopicPolicy
@@ -235,6 +246,6 @@ Resources:
             Principal:
               Service: apigateway.amazonaws.com
             Action: sns:Publish
-            Resource: !Ref DeveloperNotification
+            Resource: !Ref TwilioSMS
         Topics:
-          - !Ref DeveloperNotification
+          - !Ref TwilioSMS
